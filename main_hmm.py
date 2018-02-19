@@ -29,10 +29,10 @@ if __name__ == '__main__':
 
     K = 3
     N = 10000
-    iter_initial_gmm = 5000
+    iter_initial_gmm = 1
     iter_hmm = 5000
     term_threshold = 1e-12
-    use_kmeans_init = True
+    use_kmeans_init = False
 
 #    true_dist = GaussianHMM()
     true_dist = GaussianHMM(transition_matrix=[[0.99, 0.005, 0.005],
@@ -149,25 +149,32 @@ if __name__ == '__main__':
         means = (gamma * x).sum(0) / N_k
         var = (gamma * ((x - means) ** 2)).sum(0) / N_k
         std = np.sqrt(var)
-        xi = gamma[:-1, :, None] * gamma[1:, None]
+
+        # xi
+        alphas_expand = alphas[:-1, :, None]  # (N, K) -> (N - 1, K, 1)
+        tmp = (
+            pxngzn / np.expand_dims(cs, 1) * betas)
+        tmp_expand = tmp[1:, None]  # (N, K)->(N - 1, 1, K)
+        xi = alphas_expand * tmp_expand * A
         A = xi.sum(0) / xi.sum(0).sum(1, keepdims=True)
 
         # show plots
         dummy = np.linspace(-15, 15, 600)
         f = stats.norm(means, std).pdf(col(dummy))
-        plt.plot(dummy, f)
-        plt.show()
-        plt.plot(log_likelihoods)
-        plt.show()
-        print(it)
-        print('log likelihood:', log_likelihood)
-        print('means:\n', means)
-        print('std:\n', std)
-        print('A:\n', A)
-        print()
+        if it % 10 == 0:
+            plt.plot(dummy, f)
+            plt.show()
+            plt.plot(log_likelihoods)
+            plt.show()
+            print(it)
+            print('log likelihood:', log_likelihood)
+            print('means:\n', means)
+            print('std:\n', std)
+            print('A:\n', A)
+            print()
 
-        if it > 1:
-            improvement = log_likelihoods[-1] - log_likelihoods[-2]
-            print(improvement)
-            if 0 <= improvement < term_threshold:
-                break
+            if it > 1:
+                improvement = log_likelihoods[-1] - log_likelihoods[-2]
+                print(improvement)
+                if 0 <= improvement < term_threshold:
+                    break
