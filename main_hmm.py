@@ -112,35 +112,35 @@ if __name__ == '__main__':
         betas = []
         cs = []
 
-        # precompute p(x_n|z_n)
-        pxngzn = stats.norm(means, std).pdf(x)
+        # precompute {p(x_n|z_n)}
+        pxgz = stats.norm(means, std).pdf(x)
 
         # forwrd (alpha)
-        alpha = pxngzn[0] * pi
+        alpha = pxgz[0] * pi
         c = alpha.sum()
         alpha /= c
         alphas.append(alpha)
         cs.append(c)
-        for pn in pxngzn[1:]:
+        for pn in pxgz[1:]:
             alpha = pn * alpha.dot(A)
             c = alpha.sum()
             alpha /= c
             alphas.append(alpha)
             cs.append(c)
         alphas = np.array(alphas)
+        cs = np.array(cs)
 
         # backward (beta)
         beta = np.ones(K)
         betas.append(beta)
-        for pn, c in zip(pxngzn[1:][::-1], cs[1:][::-1]):
-            beta = (beta * (pn / c)).dot(A.T)
+        normalized_pxgz = pxgz / cs[:, None]
+        for normalized_pxngzn in normalized_pxgz[1:][::-1]:
+            beta = (beta * normalized_pxngzn).dot(A.T)
             betas.append(beta)
         betas = np.array(betas[::-1])
 
         # gamma
         gamma = alphas * betas
-#        print(z[-10:])
-#        print(gamma2[-10:])
         log_likelihood = np.sum(np.log(cs))
         log_likelihoods.append(log_likelihood)
 
@@ -152,8 +152,7 @@ if __name__ == '__main__':
 
         # xi
         alphas_expand = alphas[:-1, :, None]  # (N, K) -> (N - 1, K, 1)
-        tmp = (
-            pxngzn / np.expand_dims(cs, 1) * betas)
+        tmp = normalized_pxgz * betas
         tmp_expand = tmp[1:, None]  # (N, K)->(N - 1, 1, K)
         xi = alphas_expand * tmp_expand * A
         A = xi.sum(0) / xi.sum(0).sum(1, keepdims=True)
